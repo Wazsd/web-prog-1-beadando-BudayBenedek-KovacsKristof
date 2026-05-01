@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="hu">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Fetch API CRUD — Web programozás-1</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="inner">
+      <p class="ornament">&#10086;  &#10086;  &#10086;</p>
+      <h1>Web programozás-1 Előadás Házi feladat</h1>
+      <p class="sub">Magyar Feltalálók — Adatbázis kezelő alkalmazás · 2026</p>
+      <nav class="site-nav">
+        <a href="/">Főoldal</a>
+        <a href="/javascript.html">JavaScript</a>
+        <a href="/react.html">React</a>
+        <a href="/spa.html">SPA</a>
+        <a href="/fetchapi.html" class="active">Fetch API</a>
+        <a href="/axios.html">Axios</a>
+        <a href="/oojs.html">OOJS</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="page-title">
+      <p class="chapter">V. FEJEZET</p>
+      <h2>Fetch API CRUD</h2>
+      <p class="lead">Vanilla JS + Fetch API · MySQL szerveroldali tárolás (PHP)</p>
+    </div>
+
+    <form id="fa-form" class="parchment mb-6">
+      <h3 class="form-title" id="fa-title">Új feltaláló hozzáadása (POST)</h3>
+      <div class="form-grid">
+        <input id="fa-nev" type="text" required placeholder="Név" />
+        <input id="fa-szul" type="number" placeholder="Születés" />
+        <input id="fa-meghal" type="number" placeholder="Halálozás (opc.)" />
+        <button type="submit" class="btn-academic"><span id="fa-submit-label">Hozzáadás</span></button>
+      </div>
+      <button type="button" id="fa-cancel" class="btn-link hidden">Szerkesztés megszakítása</button>
+    </form>
+
+    <div id="fa-error" class="parchment mb-4 hidden" style="color: #8c1d2e;"></div>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Kód</th>
+            <th>Név</th>
+            <th>Születés</th>
+            <th>Halálozás</th>
+            <th class="right">Műveletek</th>
+          </tr>
+        </thead>
+        <tbody id="fa-tbody"></tbody>
+      </table>
+    </div>
+    <p class="muted italic mt-3 text-center">
+      PHP endpoint: <span class="font-mono">GET / POST / PUT / DELETE &nbsp; api.php[?id=X]</span>
+    </p>
+  </main>
+
+  <footer class="site-footer">
+    <p class="ornament" style="margin-bottom: 0.75rem;">&#10086;  &#10086;  &#10086;</p>
+    <p class="author">Készítette: Kovács Kristóf</p>
+    <p class="neptun">Neptun kód: XADNA6</p>
+    <p class="meta">Budapest · MMXXVI · Web Programozás-1</p>
+  </footer>
+
+  <script>
+    var API = "./api.php";
+
+    var tbody = document.getElementById("fa-tbody");
+    var form = document.getElementById("fa-form");
+    var inputNev = document.getElementById("fa-nev");
+    var inputSzul = document.getElementById("fa-szul");
+    var inputMeghal = document.getElementById("fa-meghal");
+    var submitLabel = document.getElementById("fa-submit-label");
+    var cancelBtn = document.getElementById("fa-cancel");
+    var titleEl = document.getElementById("fa-title");
+    var errorEl = document.getElementById("fa-error");
+    var editingId = null;
+
+    function showError(msg) {
+      if (msg) {
+        errorEl.textContent = "Hiba: " + msg;
+        errorEl.classList.remove("hidden");
+      } else {
+        errorEl.classList.add("hidden");
+      }
+    }
+
+    function loadInventors() {
+      showError(null);
+      fetch(API)
+        .then(function (res) {
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          return res.json();
+        })
+        .then(function (data) { renderTable(data); })
+        .catch(function (err) { showError(err.message); });
+    }
+
+    function renderTable(items) {
+      tbody.innerHTML = "";
+      if (!items.length) {
+        var tr = document.createElement("tr");
+        tr.innerHTML = '<td colspan="5" class="text-center italic" style="padding: 1.5rem;">Nincs adat</td>';
+        tbody.appendChild(tr);
+        return;
+      }
+      items.forEach(function (inv) {
+        var tr = document.createElement("tr");
+        tr.innerHTML =
+          '<td class="mono">' + inv.fkod + '</td>' +
+          '<td>' + inv.nev + '</td>' +
+          '<td>' + (inv.szul != null ? inv.szul : "—") + '</td>' +
+          '<td>' + (inv.meghal != null ? inv.meghal : "—") + '</td>' +
+          '<td class="right"><div class="action-cell">' +
+            '<button class="btn-academic btn-small" data-action="edit" data-id="' + inv.fkod + '">Szerk.</button>' +
+            '<button class="btn-burgundy btn-small" data-action="del" data-id="' + inv.fkod + '">Töröl</button>' +
+          '</div></td>';
+        tr._inv = inv;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function resetForm() {
+      editingId = null;
+      form.reset();
+      submitLabel.textContent = "Hozzáadás";
+      titleEl.textContent = "Új feltaláló hozzáadása (POST)";
+      cancelBtn.classList.add("hidden");
+    }
+
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      var nev = inputNev.value.trim();
+      if (!nev) return;
+      var body = {
+        nev: nev,
+        szul: inputSzul.value ? parseInt(inputSzul.value, 10) : null,
+        meghal: inputMeghal.value ? parseInt(inputMeghal.value, 10) : null
+      };
+      var url = editingId ? API + "?id=" + editingId : API;
+      var method = editingId ? "PUT" : "POST";
+      fetch(url, {
+        method: method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      })
+        .then(function (res) {
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          return res.json();
+        })
+        .then(function () { resetForm(); loadInventors(); })
+        .catch(function (err) { showError(err.message); });
+    });
+
+    cancelBtn.addEventListener("click", function () { resetForm(); });
+
+    tbody.addEventListener("click", function (e) {
+      var btn = e.target.closest("button[data-action]");
+      if (!btn) return;
+      var id = parseInt(btn.dataset.id, 10);
+      if (btn.dataset.action === "del") {
+        fetch(API + "?id=" + id, { method: "DELETE" })
+          .then(function (res) {
+            if (!res.ok) throw new Error("HTTP " + res.status);
+            loadInventors();
+          })
+          .catch(function (err) { showError(err.message); });
+      } else if (btn.dataset.action === "edit") {
+        var tr = btn.closest("tr");
+        var inv = tr._inv;
+        if (!inv) return;
+        editingId = inv.fkod;
+        inputNev.value = inv.nev;
+        inputSzul.value = inv.szul != null ? inv.szul : "";
+        inputMeghal.value = inv.meghal != null ? inv.meghal : "";
+        submitLabel.textContent = "Mentés";
+        titleEl.textContent = "Szerkesztés (PUT ?id=" + inv.fkod + ")";
+        cancelBtn.classList.remove("hidden");
+        inputNev.focus();
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+    });
+
+    loadInventors();
+  </script>
+</body>
+</html>
